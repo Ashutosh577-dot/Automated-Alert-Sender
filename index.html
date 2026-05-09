@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gurukulam AI Sender</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    body { background-color: #f0f2f5; padding: 15px; font-family: sans-serif; }
+    .app-header { text-align: center; margin-bottom: 20px; }
+    .tool-card { background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+    .smart-console { background: #1e1e1e; color: #00ff00; font-family: monospace; padding: 12px; border-radius: 8px; font-size: 0.85rem; margin-top: 20px; min-height: 45px; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center;}
+    .student-box { padding: 15px; margin-top: 15px; background: #fafafa; border-radius: 8px; border: 1px solid #eee; }
+    .risk-CRITICAL { border-left: 5px solid #e74c3c; }
+    .risk-MEDIUM { border-left: 5px solid #f39c12; }
+    .risk-LOW { border-left: 5px solid #2ecc71; }
+    .nav-pills .nav-link.active { background-color: #8B4513; color: white; }
+    .nav-pills .nav-link { color: #8B4513; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <div class="app-header">
+    <h3 style="color: #8B4513; font-weight: bold; text-transform: uppercase;">Gurukulam Absent and Result checker & Sender</h3>
+  </div>
+
+  <ul class="nav nav-pills nav-fill mb-4" id="pills-tab">
+    <li class="nav-item">
+      <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pills-absent" type="button">Absentee AI</button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="pill" data-bs-target="#pills-result" type="button">Fast Results</button>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+    
+    <div class="tab-pane fade show active" id="pills-absent">
+      <div class="tool-card">
+        <h5 class="text-danger fw-bold mb-3"><i class="fas fa-radar me-2"></i> Smart Pattern Scanner</h5>
+        
+        <button id="btnAbsent" class="btn btn-danger btn-lg w-100 fw-bold" onclick="startScanner()">
+          <i class="fas fa-search me-2"></i> Run Neural Database Scan
+        </button>
+        
+        <div id="statusAbsent" class="smart-console">System Ready. Awaiting command...</div>
+        
+        <div id="riskSummary" class="d-none mt-3 p-2 bg-light rounded text-center fw-bold">
+            <span class="text-danger mx-2"><span id="countCrit">0</span> Critical</span>
+            <span class="text-warning mx-2"><span id="countMed">0</span> Medium</span>
+            <span class="text-success mx-2"><span id="countLow">0</span> Low</span>
+        </div>
+
+        <div id="resAbsent" class="mt-3"></div>
+      </div>
+    </div>
+
+    <div class="tab-pane fade" id="pills-result">
+      <div class="tool-card">
+        <h5 class="text-success fw-bold mb-3"><i class="fas fa-bolt me-2"></i> Result Dispatcher</h5>
+        
+        <div class="mb-2"><input type="text" id="roll" class="form-control" placeholder="Roll No (e.g. 601)"></div>
+        <div class="mb-2"><input type="text" id="name" class="form-control" placeholder="Student Name"></div>
+        <div class="mb-3"><input type="tel" id="mob" class="form-control" placeholder="Parent WhatsApp No.(Optional)"></div>
+
+        <div class="d-flex gap-2">
+          <button id="btnResultWA" class="btn btn-success btn-lg w-50 fw-bold" onclick="startResultFetcher('WA')">
+            <i class="fab fa-whatsapp me-2"></i> WhatsApp
+          </button>
+          <button id="btnResultSMS" class="btn btn-primary btn-lg w-50 fw-bold" onclick="startResultFetcher('SMS')">
+            <i class="fas fa-comment-sms me-2"></i> Normal SMS
+          </button>
+        </div>
+        
+        <div id="statusResult" class="smart-console">Cache Engine Active...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <script>
+    
+    // 1. ABSENTEE SCANNER FUNCTION
+    function startScanner() {
+      var btn = document.getElementById("btnAbsent");
+      var status = document.getElementById("statusAbsent");
+      var resBox = document.getElementById("resAbsent");
+      var summaryBox = document.getElementById("riskSummary");
+      
+      btn.disabled = true; 
+      btn.innerHTML = "<i class='fas fa-circle-notch fa-spin me-2'></i> Processing...";
+      status.innerHTML = "Connecting to database...";
+      status.style.color = "#f1c40f"; 
+      resBox.innerHTML = "";
+      summaryBox.classList.add('d-none');
+
+      google.script.run
+        .withSuccessHandler(function(list) {
+          btn.disabled = false; 
+          btn.innerHTML = "<i class='fas fa-search me-2'></i> Run Neural Database Scan";
+          
+          if(!list || list.length === 0) {
+            status.innerHTML = "<i class='fas fa-check-circle me-2'></i> Scan Complete: Zero pending anomalies.";
+            status.style.color = "#00ff00";
+            return;
+          }
+          
+          status.innerHTML = "<i class='fas fa-exclamation-triangle me-2'></i> Scan Complete: " + list.length + " vulnerable profiles found.";
+          status.style.color = "#ff5555";
+          
+          var html = "";
+          var crit = 0, med = 0, low = 0;
+
+          for(var i=0; i<list.length; i++) {
+            var st = list[i];
+            
+            var encId = encodeURIComponent(st.id);
+            var encName = encodeURIComponent(st.name);
+            var encDates = encodeURIComponent(st.daysText);
+            var encBlock = encodeURIComponent(st.blockId);
+            var encRisk = encodeURIComponent(st.riskLevel);
+            
+            if(st.riskLevel === 'CRITICAL') crit++;
+            if(st.riskLevel === 'MEDIUM') med++;
+            if(st.riskLevel === 'LOW') low++;
+
+            html += "<div class='student-box risk-" + st.riskLevel + "' id='box_" + i + "'>";
+            html += "<div class='fw-bold fs-5'>" + st.name + " <span class='text-muted fs-6'>(" + st.id + ")</span></div>";
+            html += "<div class='text-danger fw-bold mb-1'>Missing: " + st.daysText + "</div>";
+            html += "<div class='small text-muted mb-2'>+91 " + st.mobile + "</div>";
+            
+            html += "<div class='d-flex gap-2'>";
+            html += "<button class='btn btn-outline-success w-50 fw-bold' onclick=\"sendMsg('WA', '" + encId + "', '" + encName + "', '" + st.mobile + "', '" + encDates + "', '" + encBlock + "', '" + encRisk + "', 'box_" + i + "')\"><i class='fab fa-whatsapp me-1'></i> WhatsApp</button>";
+            html += "<button class='btn btn-outline-primary w-50 fw-bold' onclick=\"sendMsg('SMS', '" + encId + "', '" + encName + "', '" + st.mobile + "', '" + encDates + "', '" + encBlock + "', '" + encRisk + "', 'box_" + i + "')\"><i class='fas fa-comment-sms me-1'></i> SMS</button>";
+            html += "</div>";
+
+            html += "</div>";
+          }
+
+          document.getElementById("countCrit").innerText = crit;
+          document.getElementById("countMed").innerText = med;
+          document.getElementById("countLow").innerText = low;
+          summaryBox.classList.remove('d-none');
+          
+          resBox.innerHTML = html;
+        })
+        .withFailureHandler(function(err) {
+          btn.disabled = false; 
+          btn.innerHTML = "<i class='fas fa-search me-2'></i> Run Neural Database Scan";
+          
+          if (err.message.includes("HOLIDAY_BLOCK:")) {
+             status.innerHTML = err.message.replace("HOLIDAY_BLOCK:", "").trim();
+             status.style.color = "inherit"; 
+          } else {
+             status.innerHTML = "<i class='fas fa-times-circle me-2'></i> Error: " + err.message;
+             status.style.color = "#ff5555";
+             alert("Backend Error: " + err.message);
+          }
+        })
+        .getDynamicAbsenteeList();
+    }
+
+    // 2. UNIVERSAL SENDER FUNCTION
+    function sendMsg(type, encId, encName, mobile, encDates, encBlock, encRisk, boxId) {
+      if(!mobile || mobile === "No Number" || mobile.length < 10) { 
+          alert("Invalid Mobile Number!"); 
+          return; 
+      }
+      
+      var id = decodeURIComponent(encId);
+      var name = decodeURIComponent(encName);
+      var dates = decodeURIComponent(encDates);
+      var blockId = decodeURIComponent(encBlock);
+      var risk = decodeURIComponent(encRisk);
+
+      // Log to DB
+      google.script.run.markAlertSent(id, name, blockId, risk, type);
+      
+      // Hide student box smoothly
+      var studentBox = document.getElementById(boxId);
+      studentBox.style.opacity = '0';
+      setTimeout(function() { studentBox.style.display = "none"; }, 300);
+
+      // Update Counters
+      if (risk === 'CRITICAL') {
+          let el = document.getElementById("countCrit");
+          el.innerText = Math.max(0, parseInt(el.innerText) - 1);
+      } else if (risk === 'MEDIUM') {
+          let el = document.getElementById("countMed");
+          el.innerText = Math.max(0, parseInt(el.innerText) - 1);
+      } else if (risk === 'LOW') {
+          let el = document.getElementById("countLow");
+          el.innerText = Math.max(0, parseInt(el.innerText) - 1);
+      }
+
+      // Send Message
+      if (type === 'WA') {
+          var msgWA = "श्री हुलास ब्रह्म बाबा संस्कृत वेद गुरुकुलम्\n\nप्रिय अभिभावक,\nआपका बच्चा *" + name + "* निम्नलिखित तिथियों पर गुरुकुल में अनुपस्थित रहा है:\n\n📅 *" + dates + "*\n\nकृपया जल्द से जल्द गुरुकुल प्रशासन से संपर्क करें।\nधन्यवाद।";
+          window.open("https://wa.me/91" + mobile + "?text=" + encodeURIComponent(msgWA), '_blank');
+      } 
+      else if (type === 'SMS') {
+          var msgSMS = "श्री हुलास ब्रह्म बाबा संस्कृत वेद गुरुकुलम्\n\nप्रिय अभिभावक,\nआपका बच्चा " + name + " निम्नलिखित तिथियों पर गुरुकुल में अनुपस्थित रहा है:\n📅 " + dates + "\n\nकृपया जल्द से जल्द गुरुकुल प्रशासन से संपर्क करें। धन्यवाद।";
+          window.open("sms:+91" + mobile + "?body=" + encodeURIComponent(msgSMS), '_self'); 
+      }
+    }
+
+    // 3. RESULT FETCHER
+    function startResultFetcher(method) {
+      const roll = document.getElementById("roll").value.trim();
+      const name = document.getElementById("name").value.trim();
+      const mob = document.getElementById("mob").value.trim(); 
+      const btnWA = document.getElementById("btnResultWA");
+      const btnSMS = document.getElementById("btnResultSMS");
+      const status = document.getElementById("statusResult");
+
+      if(!roll && !name) { alert("Input Required: Provide either Roll No. or Name."); return; }
+
+      btnWA.disabled = true; btnSMS.disabled = true; 
+      status.innerHTML = '<i class="fas fa-terminal me-2"></i> Connecting to DB for Mobile & Drive for PDF...';
+      status.style.color = "#f1c40f";
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          btnWA.disabled = false; btnSMS.disabled = false;
+          
+          if(res.status === 'ERROR') { 
+              status.innerHTML = `<i class='fas fa-times-circle me-2'></i> Fetch Failed: ${res.message}`; 
+              status.style.color = "#ff5555";
+              return; 
+          }
+
+          let finalMobile = mob || res.mobile;
+
+          if (!finalMobile || finalMobile.length < 10) {
+              status.innerHTML = "<i class='fas fa-exclamation-triangle me-2'></i> Mobile number missing in DB!";
+              status.style.color = "#ff5555";
+              alert("Mobile number not found in database! Please type it manually in the box.");
+              return;
+          }
+
+          document.getElementById("mob").value = finalMobile;
+          
+          if (res.cached) {
+              status.innerHTML = `<i class='fas fa-bolt text-warning me-2'></i> Auto-Fetched: [${res.fileName}]`;
+              status.style.color = "#00ff00";
+          } else {
+              status.innerHTML = `<i class='fas fa-check-circle me-2'></i> Drive Extraction: [${res.fileName}]`;
+              status.style.color = "#00ff00";
+          }
+          
+          let studentRef = name || roll;
+          
+          if (method === 'WA') {
+              const msgWA = `श्री हुलास ब्रह्म बाबा संस्कृत वेद गुरुकुलम्\n\nप्रिय अभिभावक,\nआपके बच्चे *${studentRef}* का रिजल्ट आ गया है। नीचे दिए गए लिंक पर क्लिक करके PDF डाउनलोड करें:\n\n📄 ${res.url}\n\n(नोट: PDF का पासवर्ड आपके इसी निजी (PERSONAL) मोबाइल नंबर पर भेज दिया गया है)`;
+              window.open(`https://wa.me/91${finalMobile}?text=${encodeURIComponent(msgWA)}`, '_blank');
+          } else {
+              const msgSMS = `श्री हुलास ब्रह्म बाबा संस्कृत वेद गुरुकुलम्\n\nप्रिय अभिभावक,\nआपके बच्चे ${studentRef} का रिजल्ट आ गया है। नीचे दिए गए लिंक पर क्लिक करके PDF डाउनलोड करें:\n📄 ${res.url}\n\n(नोट: PDF का पासवर्ड आपके इसी निजी (PERSONAL) मोबाइल नंबर पर भेज दिया गया है)`;
+              window.open(`sms:+91${finalMobile}?body=${encodeURIComponent(msgSMS)}`, '_self');
+          }
+        })
+        .withFailureHandler(function(err) {
+          btnWA.disabled = false; btnSMS.disabled = false;
+          status.innerHTML = `<i class="fas fa-times-circle me-2"></i> Connectivity Error: ${err.message}`;
+          status.style.color = "#ff5555";
+        })
+        .fetchResultFromDrive(roll, name);
+    }
+  </script>
+</body>
+</html>
